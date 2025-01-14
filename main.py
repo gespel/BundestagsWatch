@@ -3,95 +3,111 @@ import pandas as pd
 import json
 import time
 import matplotlib.pyplot as plt
+import os
+from flask import Flask
 
-r = requests.get("https://api.dawum.de/")
-data = json.loads(r.text)
-#print(data)
-def num_of_parties():
-    return len(data["Parties"])
+application = Flask(__name__)
 
 
-def party_name_by_id(id):
-    parties = data["Parties"]
-    return parties[str(id)]["Shortcut"]
+class BundestagsWatch:
+    def __init__(self):
+        self.data = None
+        self.r = None
+        self.previous_picture = ""
+
+    def request(self):
+        self.r = requests.get("https://api.dawum.de/")
+        self.data = json.loads(self.r.text)
+    #print(data)
+    def num_of_parties(self):
+        return len(self.data["Parties"])
 
 
-def survey_by_id(id):
-    surveys = data["Surveys"]
-    return surveys[str(id)]
+    def party_name_by_id(self, party_id):
+        parties = self.data["Parties"]
+        return parties[str(party_id)]["Shortcut"]
 
 
-def survey_list():
-    out = []
-    for s in data["Surveys"]:
-        out.append(data["Surveys"][s])
-    return out
+    def survey_by_id(self, party_id):
+        surveys = self.data["Surveys"]
+        return surveys[str(party_id)]
 
 
-def parties_in_survey(survey):
-    out = []
-    for party_id in survey["Results"]:
-        out.append(party_id)
-    return out
+    def survey_list(self):
+        out = []
+        for s in self.data["Surveys"]:
+            out.append(self.data["Surveys"][s])
+        return out
 
 
-def result_of_party_in_survey(survey, party_id):
-    return survey["Results"][str(party_id)]
-# print(num_of_parties())
-# print(party_name_by_id(5))
-# print(survey_by_id(365))
-# print(survey_list())
-import matplotlib.pyplot as plt
-import pandas as pd
+    def parties_in_survey(self, survey):
+        out = []
+        for party_id in survey["Results"]:
+            out.append(party_id)
+        return out
 
 
-def plot_party(party_id):
-    party_name = party_name_by_id(party_id)
-    party_data = ([], [])
+    def result_of_party_in_survey(self, survey, party_id):
+        return survey["Results"][str(party_id)]
 
-    for i in range(0, len(survey_list()), 50):
-        s = survey_list()[i]
-        if s["Parliament_ID"] == "0":
-            for p in parties_in_survey(s):
-                if p == party_id:
-                    party_data[0].append(s["Date"])
-                    party_data[1].append(result_of_party_in_survey(s, p))
+    def plot_party(self, party_id):
+        party_name = self.party_name_by_id(party_id)
+        party_data = ([], [])
 
-    # Daten umkehren, damit sie chronologisch sortiert sind
-    d = party_data[0]
-    r = party_data[1]
-    d.reverse()
-    r.reverse()
+        for i in range(0, len(self.survey_list()), 50):
+            s = self.survey_list()[i]
+            if s["Parliament_ID"] == "0":
+                for p in self.parties_in_survey(s):
+                    if p == party_id:
+                        party_data[0].append(s["Date"])
+                        party_data[1].append(self.result_of_party_in_survey(s, p))
 
-    # DataFrame erstellen
-    df = pd.DataFrame({'Date': pd.to_datetime(d), 'Result': r})
-    df.set_index('Date', inplace=True)
-    return df
+        # Daten umkehren, damit sie chronologisch sortiert sind
+        d = party_data[0]
+        r = party_data[1]
+        d.reverse()
+        r.reverse()
+
+        # DataFrame erstellen
+        df = pd.DataFrame({'Date': pd.to_datetime(d), 'Result': r})
+        df.set_index('Date', inplace=True)
+        return df
 
 
-def plot_all():
-    # Ergebnisse für verschiedene Parteien sammeln
-    party_ids = ["5", "1", "2", "3", "4", "7"]
-    dataframes = [plot_party(pid) for pid in party_ids]
+    def render_plot(self):
+        party_ids = ["5", "1", "2", "3", "4", "7", "23"]
+        dataframes = [self.plot_party(pid) for pid in party_ids]
 
-    # Alle Datenframes zusammenführen
-    all_data = pd.concat(dataframes, axis=1, join='outer')
-    all_data.columns = party_ids
+        all_data = pd.concat(dataframes, axis=1, join='outer')
+        all_data.columns = party_ids
 
-    smoothed_data = all_data.rolling(window=8, min_periods=1).mean()
+        smoothed_data = all_data.rolling(window=8, min_periods=1).mean()
 
-    # Plotten
-    plt.figure(figsize=(12, 6))
-    # for party_id in party_ids:
-    #    plt.plot(all_data.index, all_data[party_id], linestyle='-', label=f'{party_name_by_id(party_id)}')
+        plt.figure(figsize=(12, 6))
+        for party_id in party_ids:
+            plt.plot(smoothed_data.index, smoothed_data[party_id], linewidth=2, label=f'{self.party_name_by_id(party_id)}')
 
-    for party_id in party_ids:
-        plt.plot(smoothed_data.index, smoothed_data[party_id], linewidth=2, label=f'{party_name_by_id(party_id)}')
+        plt.legend()
+        plt.title("approximation of election results")
+        plt.xlabel("Date")
+        plt.ylabel("Result")
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        filename = f"static/{time.strftime("%Y%m%d-%H%M%S", time.localtime())}.png"
+        if os.path.exists(self.previous_picture):
+            os.remove(self.previous_picture)
+        self.previous_picture = filename
+        plt.savefig(filename)
+        return filename
 
-    plt.legend()
-    plt.title("Party Results Over Time")
-    plt.xlabel("Date")
-    plt.ylabel("Result")
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    plt.savefig(f"{time.strftime("%Y%m%d-%H%M%S", time.localtime())}.png")
+
+
+bw = BundestagsWatch()
+@application.route("/")
+def root():
+    bw.request()
+    name = bw.render_plot()
+    return f"<center><img src='{name}'></center>"
+
+if __name__ == "__main__":
+    application.run(host = "0.0.0.0")
