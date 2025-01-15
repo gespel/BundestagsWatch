@@ -14,6 +14,15 @@ class BundestagsWatch:
         self.data = None
         self.r = None
         self.previous_picture = ""
+        self.party_colors = {
+            "1": "black",
+            "2": "red",
+            "3": "yellow",
+            "4": "green",
+            "5": "purple",
+            "7": "blue",
+            "23": "magenta",
+        }
 
     def request(self):
         self.r = requests.get("https://api.dawum.de/")
@@ -73,6 +82,9 @@ class BundestagsWatch:
         df.set_index('Date', inplace=True)
         return df
 
+    def get_color_for_party(self, party_id):
+        return self.party_colors[str(party_id)]
+
 
     def render_plot(self):
         party_ids = ["5", "1", "2", "3", "4", "7", "23"]
@@ -85,7 +97,7 @@ class BundestagsWatch:
 
         plt.figure(figsize=(12, 6))
         for party_id in party_ids:
-            plt.plot(smoothed_data.index, smoothed_data[party_id], linewidth=2, label=f'{self.party_name_by_id(party_id)}')
+            plt.plot(smoothed_data.index, smoothed_data[party_id], antialiased=True, color=self.get_color_for_party(party_id) ,linewidth=2, label=f'{self.party_name_by_id(party_id)}')
 
         plt.legend()
         plt.title("approximation of election results")
