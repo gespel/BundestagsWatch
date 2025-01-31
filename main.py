@@ -63,7 +63,7 @@ class BundestagsWatch:
         party_name = self.party_name_by_id(party_id)
         party_data = ([], [])
 
-        for i in range(0, len(self.survey_list()), 50):
+        for i in range(0, len(self.survey_list()), 7):
             s = self.survey_list()[i]
             if s["Parliament_ID"] == "0":
                 for p in self.parties_in_survey(s):
@@ -89,8 +89,9 @@ class BundestagsWatch:
     def render_plot(self):
         party_ids = ["5", "1", "2", "3", "4", "7", "23"]
         dataframes = [self.plot_party(pid) for pid in party_ids]
-
+        #print(dataframes)
         all_data = pd.concat(dataframes, axis=1, join='outer')
+        #all_data.append(dataframes)
         all_data.columns = party_ids
 
         smoothed_data = all_data.rolling(window=8, min_periods=1).mean()
