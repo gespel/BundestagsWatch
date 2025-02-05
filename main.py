@@ -94,7 +94,7 @@ class BundestagsWatch:
         #all_data.append(dataframes)
         all_data.columns = party_ids
 
-        smoothed_data = all_data.rolling(window=8, min_periods=1).mean()
+        smoothed_data = all_data.rolling(window=4, min_periods=1).mean()
 
         plt.figure(figsize=(12, 6))
         for party_id in party_ids:
