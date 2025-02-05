@@ -100,6 +100,8 @@ class BundestagsWatch:
         for party_id in party_ids:
             plt.plot(smoothed_data.index, smoothed_data[party_id], antialiased=True, color=self.get_color_for_party(party_id) ,linewidth=2, label=f'{self.party_name_by_id(party_id)}')
 
+        plt.yticks(range(0, int(smoothed_data.max().max()) + 5, 5))
+        plt.grid(axis='y', linestyle=':', linewidth=1, alpha=1)
         plt.legend()
         plt.title("approximation of election results")
         plt.xlabel("Date")
