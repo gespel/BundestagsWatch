@@ -1,3 +1,5 @@
+from threading import Thread
+
 import requests
 import pandas as pd
 import json
@@ -94,7 +96,7 @@ class BundestagsWatch:
         #all_data.append(dataframes)
         all_data.columns = party_ids
 
-        smoothed_data = all_data.rolling(window=4, min_periods=1).mean()
+        smoothed_data = all_data.rolling(window=20, min_periods=1).mean()
 
         plt.figure(figsize=(12, 6))
         for party_id in party_ids:
@@ -108,21 +110,26 @@ class BundestagsWatch:
         plt.ylabel("Result")
         plt.xticks(rotation=45)
         plt.tight_layout()
-        filename = f"static/{time.strftime("%Y%m%d-%H%M%S", time.localtime())}.png"
+        #filename = f"static/{time.strftime("%Y%m%d-%H%M%S", time.localtime())}.png"
+        filename = "static/current_graph.png"
         if os.path.exists(self.previous_picture):
             os.remove(self.previous_picture)
         self.previous_picture = filename
         plt.savefig(filename)
         return filename
 
+def renderer():
+    bw = BundestagsWatch()
+    while True:
+        bw.request()
+        bw.render_plot()
+        time.sleep(600)
 
-
-bw = BundestagsWatch()
 @application.route("/")
 def root():
-    bw.request()
-    name = bw.render_plot()
-    return f"<center><img src='{name}'></center>"
+    return f"<center><img src='static/current_graph.png'></center>"
 
 if __name__ == "__main__":
+    thread1 = Thread(target=renderer, args=())
+    thread1.start()
     application.run(host = "0.0.0.0")
