@@ -127,7 +127,7 @@ def renderer():
 
 @application.route("/")
 def root():
-    return f"<center><img src='static/current_graph.png'></center>"
+    return f"<title>BundestagsWatch</title><center><img src='static/current_graph.png'></center>"
 
 if __name__ == "__main__":
     thread1 = Thread(target=renderer, args=())
