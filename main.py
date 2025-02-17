@@ -1,3 +1,4 @@
+from datetime import datetime
 from threading import Thread
 
 import requests
@@ -25,6 +26,7 @@ class BundestagsWatch:
             "7": "blue",
             "23": "magenta",
         }
+        self.latest_render_time = ""
 
     def request(self):
         self.r = requests.get("https://api.dawum.de/")
@@ -116,6 +118,14 @@ class BundestagsWatch:
             os.remove(self.previous_picture)
         self.previous_picture = filename
         plt.savefig(filename)
+        self.latest_render_time = f"{datetime.now()}"
+        if os.path.exists("static/latest_render_time.json"):
+            os.remove("static/latest_render_time.json")
+        with open("static/latest_render_time.json", "w") as f:
+            out = {
+                "time": self.latest_render_time,
+            }
+            f.write(json.dumps(out))
         return filename
 
 def renderer():
@@ -130,7 +140,11 @@ def renderer():
 
 @application.route("/")
 def root():
-    return f"<title>BundestagsWatch</title><center><img src='static/current_graph.png'></center>"
+    latest_render_time = ""
+    with open("static/latest_render_time.json") as f:
+        latest_render_time = json.load(f)["time"]
+
+    return f"<title>BundestagsWatch</title><center><img src='static/current_graph.png'><br>Latest render: {latest_render_time}</center>"
 
 if __name__ == "__main__":
     thread1 = Thread(target=renderer, args=())
