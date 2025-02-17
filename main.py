@@ -121,9 +121,12 @@ class BundestagsWatch:
 def renderer():
     bw = BundestagsWatch()
     while True:
-        bw.request()
-        bw.render_plot()
-        time.sleep(600)
+        try:
+            bw.request()
+            bw.render_plot()
+            time.sleep(600)
+        except Exception as e:
+            print(e)
 
 @application.route("/")
 def root():
