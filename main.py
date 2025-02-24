@@ -63,11 +63,11 @@ class BundestagsWatch:
     def result_of_party_in_survey(self, survey, party_id):
         return survey["Results"][str(party_id)]
 
-    def plot_party(self, party_id):
+    def plot_party(self, party_id, step):
         party_name = self.party_name_by_id(party_id)
         party_data = ([], [])
 
-        for i in range(0, len(self.survey_list()), 7):
+        for i in range(0, len(self.survey_list()), step):
             s = self.survey_list()[i]
             if s["Parliament_ID"] == "0":
                 for p in self.parties_in_survey(s):
@@ -92,18 +92,21 @@ class BundestagsWatch:
 
     def render_plot(self):
         party_ids = ["5", "1", "2", "3", "4", "7", "23"]
-        dataframes = [self.plot_party(pid) for pid in party_ids]
+        dataframes = [self.plot_party(pid, 7) for pid in party_ids]
+        #exact = [self.plot_party(pid, 1) for pid in party_ids]
         #print(dataframes)
         all_data = pd.concat(dataframes, axis=1, join='outer')
+        #all_data_exact = pd.concat(exact, axis=1, join='outer')
         #all_data.append(dataframes)
         all_data.columns = party_ids
+        #all_data_exact.columns = party_ids
 
         smoothed_data = all_data.rolling(window=20, min_periods=1).mean()
 
         plt.figure(figsize=(12, 6))
         for party_id in party_ids:
-            plt.plot(smoothed_data.index, smoothed_data[party_id], antialiased=True, color=self.get_color_for_party(party_id) ,linewidth=2, label=f'{self.party_name_by_id(party_id)}')
-
+            plt.plot(smoothed_data.index, smoothed_data[party_id], antialiased=True, color=self.get_color_for_party(party_id), linewidth=2, label=f'{self.party_name_by_id(party_id)}')
+            #plt.plot(all_data_exact.index, all_data_exact[party_id], color=self.get_color_for_party(party_id), alpha=.25)
         plt.yticks(range(0, int(smoothed_data.max().max()) + 5, 5))
         plt.grid(axis='y', linestyle=':', linewidth=1, alpha=1)
         plt.legend()
