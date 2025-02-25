@@ -1,3 +1,4 @@
+import pprint
 from datetime import datetime
 from threading import Thread
 
@@ -93,10 +94,20 @@ class BundestagsWatch:
     def render_plot(self):
         party_ids = ["5", "1", "2", "3", "4", "7", "23"]
         dataframes = [self.plot_party(pid, 7) for pid in party_ids]
-        #exact = [self.plot_party(pid, 1) for pid in party_ids]
+        for p in dataframes:
+            print(len(p))
+        print("--")
+        exact = [self.plot_party(pid, 1) for pid in party_ids]
+        #exact_deduped = [df[~df.index.duplicated(keep="first")] for df in exact]
+        for p in exact:
+            print(len(p))
+        #pprint.pprint(exact)
+        print("=====")
+        #pprint.pprint(dataframes)
         #print(dataframes)
         all_data = pd.concat(dataframes, axis=1, join='outer')
-        #all_data_exact = pd.concat(exact, axis=1, join='outer')
+        all_data_exact = pd.concat(exact, axis=1, join='outer')
+        all_data_exact = all_data_exact.groupby(all_data_exact.index).mean()
         #all_data.append(dataframes)
         all_data.columns = party_ids
         #all_data_exact.columns = party_ids
