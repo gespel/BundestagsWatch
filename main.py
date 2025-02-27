@@ -106,8 +106,8 @@ class BundestagsWatch:
         #pprint.pprint(dataframes)
         #print(dataframes)
         all_data = pd.concat(dataframes, axis=1, join='outer')
-        all_data_exact = pd.concat(exact, axis=1, join='outer')
-        all_data_exact = all_data_exact.groupby(all_data_exact.index).mean()
+        #all_data_exact = pd.concat(exact, axis=1, join='outer')
+        #all_data_exact = all_data_exact.groupby(all_data_exact.index).mean()
         #all_data.append(dataframes)
         all_data.columns = party_ids
         #all_data_exact.columns = party_ids
