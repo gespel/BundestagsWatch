@@ -98,7 +98,7 @@ class BundestagsWatch:
         dataframes = [df[~df.index.duplicated()] for df in dataframes]
         all_data = pd.concat(dataframes, axis=1, join='outer')
         smoothed_data = all_data.rolling(window=20, min_periods=1).mean()
-        print(smoothed_data)
+        #print(smoothed_data)
         plt.figure(figsize=(12, 6))
         for party_id in party_ids:
             plt.plot(smoothed_data.index, smoothed_data[party_id], antialiased=True, color=self.get_color_for_party(party_id), linewidth=2, label=f'{self.party_name_by_id(party_id)}')
