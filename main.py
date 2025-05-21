@@ -1,4 +1,5 @@
 import pprint
+import traceback
 from datetime import datetime
 from threading import Thread
 
@@ -32,7 +33,6 @@ class BundestagsWatch:
     def request(self):
         self.r = requests.get("https://api.dawum.de/")
         self.data = json.loads(self.r.text)
-    #print(data)
     def num_of_parties(self):
         return len(self.data["Parties"])
 
@@ -83,7 +83,7 @@ class BundestagsWatch:
         r.reverse()
 
         # DataFrame erstellen
-        df = pd.DataFrame({'Date': pd.to_datetime(d), 'Result': r})
+        df = pd.DataFrame({'Date': pd.to_datetime(d), party_id: r})
         df.set_index('Date', inplace=True)
         return df
 
@@ -93,31 +93,15 @@ class BundestagsWatch:
 
     def render_plot(self):
         party_ids = ["5", "1", "2", "3", "4", "7", "23"]
-        dataframes = [self.plot_party(pid, 7) for pid in party_ids]
-        for p in dataframes:
-            print(len(p))
-        print("--")
-        exact = [self.plot_party(pid, 1) for pid in party_ids]
-        #exact_deduped = [df[~df.index.duplicated(keep="first")] for df in exact]
-        for p in exact:
-            print(len(p))
-        #pprint.pprint(exact)
-        print("=====")
-        #pprint.pprint(dataframes)
-        #print(dataframes)
+        dataframes = [self.plot_party(pid, 1) for pid in party_ids]
+        dataframes = [df.reset_index(drop=True) for df in dataframes]
         all_data = pd.concat(dataframes, axis=1, join='outer')
-        #all_data_exact = pd.concat(exact, axis=1, join='outer')
-        #all_data_exact = all_data_exact.groupby(all_data_exact.index).mean()
-        #all_data.append(dataframes)
-        all_data.columns = party_ids
-        #all_data_exact.columns = party_ids
-
         smoothed_data = all_data.rolling(window=20, min_periods=1).mean()
-
+        #print(smoothed_data)
         plt.figure(figsize=(12, 6))
         for party_id in party_ids:
             plt.plot(smoothed_data.index, smoothed_data[party_id], antialiased=True, color=self.get_color_for_party(party_id), linewidth=2, label=f'{self.party_name_by_id(party_id)}')
-            #plt.plot(all_data_exact.index, all_data_exact[party_id], color=self.get_color_for_party(party_id), alpha=.25)
+
         plt.yticks(range(0, int(smoothed_data.max().max()) + 5, 5))
         plt.grid(axis='y', linestyle=':', linewidth=1, alpha=1)
         plt.legend()
@@ -126,7 +110,6 @@ class BundestagsWatch:
         plt.ylabel("Result")
         plt.xticks(rotation=45)
         plt.tight_layout()
-        #filename = f"static/{time.strftime("%Y%m%d-%H%M%S", time.localtime())}.png"
         filename = "static/current_graph.png"
         if os.path.exists(self.previous_picture):
             os.remove(self.previous_picture)
@@ -135,7 +118,7 @@ class BundestagsWatch:
         self.latest_render_time = f"{datetime.now()}"
         if os.path.exists("static/latest_render_time.json"):
             os.remove("static/latest_render_time.json")
-        with open("static/latest_render_time.json", "w") as f:
+        with open("static/latest_render_time.json", "a") as f:
             out = {
                 "time": self.latest_render_time,
             }
@@ -150,7 +133,9 @@ def renderer():
             bw.render_plot()
             time.sleep(600)
         except Exception as e:
-            print(e)
+            print("Typ:", type(e))
+            print("Nachricht:", e)
+            traceback.print_exc()
 
 @application.route("/")
 def root():
@@ -161,6 +146,8 @@ def root():
     return f"<title>BundestagsWatch</title><center><img src='static/current_graph.png'><br>Latest render: {latest_render_time}</center>"
 
 if __name__ == "__main__":
+    if not os.path.exists("static"):
+        os.mkdir("static")
     thread1 = Thread(target=renderer, args=())
     thread1.start()
     application.run(host = "0.0.0.0")
