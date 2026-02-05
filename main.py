@@ -1,5 +1,6 @@
 import pprint
 import traceback
+import gc  # Garbage collector für explizite Speicherbereinigung
 from datetime import datetime
 from threading import Thread
 
@@ -7,6 +8,8 @@ import requests
 import pandas as pd
 import json
 import time
+import matplotlib
+matplotlib.use('Agg')  # Backend ohne GUI für bessere Performance in Docker
 import matplotlib.pyplot as plt
 import os
 from flask import Flask
@@ -31,8 +34,17 @@ class BundestagsWatch:
         self.latest_render_time = ""
 
     def request(self):
-        self.r = requests.get("https://api.dawum.de/")
+        # Alte Daten freigeben vor neuem Request
+        if hasattr(self, 'data'):
+            del self.data
+        if hasattr(self, 'r'):
+            del self.r
+            
+        self.r = requests.get("https://api.dawum.de/", timeout=30)
         self.data = json.loads(self.r.text)
+        
+        # Response object nach Verwendung freigeben
+        self.r.close()
     def num_of_parties(self):
         return len(self.data["Parties"])
 
@@ -99,27 +111,40 @@ class BundestagsWatch:
         all_data = pd.concat(dataframes, axis=1, join='outer')
         smoothed_data = all_data.rolling(window=20, min_periods=1).mean()
         #print(smoothed_data)
-        plt.figure(figsize=(12, 6))
+        
+        # Schließe vorherige plots um Memory Leaks zu vermeiden
+        plt.close('all')
+        
+        fig, ax = plt.subplots(figsize=(12, 6))
         for party_id in party_ids:
-            plt.plot(smoothed_data.index, smoothed_data[party_id], antialiased=True, color=self.get_color_for_party(party_id), linewidth=2, label=f'{self.party_name_by_id(party_id)}')
+            ax.plot(smoothed_data.index, smoothed_data[party_id], antialiased=True, color=self.get_color_for_party(party_id), linewidth=2, label=f'{self.party_name_by_id(party_id)}')
 
-        plt.yticks(range(0, int(smoothed_data.max().max()) + 5, 5))
-        plt.grid(axis='y', linestyle=':', linewidth=1, alpha=1)
-        plt.legend()
-        plt.title("approximation of election results")
-        plt.xlabel("Date")
-        plt.ylabel("Result")
+        ax.set_yticks(range(0, int(smoothed_data.max().max()) + 5, 5))
+        ax.grid(axis='y', linestyle=':', linewidth=1, alpha=1)
+        ax.legend()
+        ax.set_title("approximation of election results")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Result")
         plt.xticks(rotation=45)
         plt.tight_layout()
+        
         filename = "static/current_graph.png"
         if os.path.exists(self.previous_picture):
             os.remove(self.previous_picture)
         self.previous_picture = filename
-        plt.savefig(filename)
+        
+        plt.savefig(filename)  # Ursprüngliche Qualität beibehalten
+        plt.close(fig)  # Explizit schließen um Memory zu freigeben
+        
+        # Memory cleanup
+        del dataframes
+        del all_data
+        del smoothed_data
+        
         self.latest_render_time = f"{datetime.now()}"
         if os.path.exists("static/latest_render_time.json"):
             os.remove("static/latest_render_time.json")
-        with open("static/latest_render_time.json", "a") as f:
+        with open("static/latest_render_time.json", "w") as f:  # 'w' statt 'a' um Datei zu überschreiben
             out = {
                 "time": self.latest_render_time,
             }
@@ -132,11 +157,16 @@ def renderer():
         try:
             bw.request()
             bw.render_plot()
+            
+            # Explizite Garbage Collection nach jedem Zyklus
+            gc.collect()
+            
             time.sleep(600)
         except Exception as e:
             print("Typ:", type(e))
             print("Nachricht:", e)
             traceback.print_exc()
+            time.sleep(60)  # Kurze Pause bei Fehlern um CPU-Last zu reduzieren
 
 @application.route("/")
 def root():
